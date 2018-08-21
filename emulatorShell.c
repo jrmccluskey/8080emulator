@@ -84,6 +84,39 @@ unsigned char cycles[] = {
   11, 10, 10, 4, 17, 11, 7, 11, 11, 5, 10, 4, 17, 17, 7, 11
 };
 
+/* Function to control writes to state memory
+  Input: state8080 struct, value to write, address to write to
+  Output: void
+  Does not write if the address is in the first 2k of memory
+  Fails if address is out of memory range
+*/
+void writeToMemory(state8080* state, uint8_t value, uint8_t topBits, uint8_t botBits) {
+  uint16_t address = (topBits << 8) | botBits;
+  if(address <= 2000) {
+    printf("This is ROM. Can't write here.");
+  } else if(address >= 0x10000) {
+    printf("Address out of bounds.");
+    exit(1);
+  } else {
+    state->memory[address] = value;
+  }
+}
+
+/*  Function to facilitate reads from memory
+  Input: state8080 struct, address to read from memory
+  Output: uint8_t value
+  Fails if address is out of memory range
+*/
+uint8_t readFromMemory(state8080* state, uint8_t topBits, uint8_t botBits) {
+  uint16_t address = (topBits << 8) | botBits;
+  if(address >= 0x10000) {
+    printf("Address out of bounds.");
+    exit(1);
+  } else {
+    return state->memory[address];
+  }
+}
+
 /* Code implementation of the 8080 op codes
   Input: state8080 Struct
   Output: void
@@ -117,7 +150,7 @@ int emulateOp(state8080* state) {
 
     // TODO: Review STAX B in data book
     case 0x02:
-      state->memory[(state->b <<8) | state->c] = state->a;
+      writeToMemory(state, state->a, state->b, state->c);
       break; // STAX B
 
     case 0x03: {
@@ -177,7 +210,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0x0a:
-      state->a = state->memory[(state->b << 8) | state->c];
+      state->a = readFromMemory(state, state->b, state->c);
       break; // LDAX B
 
     case 0x0b: {
@@ -229,7 +262,7 @@ int emulateOp(state8080* state) {
       break; // LXI D,D16
 
     case 0x12:
-      state->memory[(state->d << 8 ) | state->e] = state->a;
+      writeToMemory(state, state->a, state->d, state->e);
       break; // STAX D
 
     case 0x13: {
@@ -285,7 +318,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0x1a:
-      state->a = state->memory[(state->d << 8 ) | state->e];
+      state->a = readFromMemory(state, state->d, state->e);
       break; // LDAX D
 
     case 0x1b: {
@@ -432,7 +465,7 @@ int emulateOp(state8080* state) {
       break; // LXI SP,D16
 
     case 0x32:
-      state->memory[(opCode[2] << 8) | opCode[1]] = state->a;
+      writeToMemory(state, state->a, opCode[2], opCode[1]);
       state->pc += 2;
       break; // STA adr
 
@@ -459,8 +492,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0x36:
-      state->h = 0;
-      state->l = opCode[1];
+      writeToMemory(state, opCode[1], state->h, state->l);
       state->pc += 1;
       break; // MVI M,D8
 
@@ -479,7 +511,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0x3a:
-      state->a = state->memory[(opCode[2] << 8) | opCode[1]];
+      state->a readFromMemory(state, opCode[2], opCode[1]);
       state->pc += 2;
       break; // LDA adr
 
@@ -528,7 +560,7 @@ int emulateOp(state8080* state) {
     case 0x45: state->b = state->l; break; // MOV B,L
 
     case 0x46:
-      state->b = state->memory[(state->h << 8) | state->l];
+      state->b = readFromMemory(state, state->h, state->l);
       break; // MOV B,M
 
     case 0x47: state->b = state->a; break; // MOV B,A
@@ -546,7 +578,7 @@ int emulateOp(state8080* state) {
     case 0x4d: state->c = state->l; break;
 
     case 0x4e:
-      state->c = state->memory[(state->h << 8) | state->l];
+      state->c = readFromMemory(state, state->h, state->l);
       break; // MOV C,M
 
     case 0x4f: state->c = state->a; break;
@@ -564,7 +596,7 @@ int emulateOp(state8080* state) {
     case 0x55: state->d = state->l; break;
 
     case 0x56:
-      state->d = state->memory[(state->h << 8) | state->l];
+      state->d = readFromMemory(state, state->h, state->l);
       break; // MOV D,M
 
     case 0x57: state->d = state->a; break;
@@ -582,7 +614,7 @@ int emulateOp(state8080* state) {
     case 0x5d: state->e = state->l; break;
 
     case 0x5e:
-      state->e = state->memory[(state->h << 8) | state->l];
+      state->e = readFromMemory(state, state->h, state->l);
       break; // MOV E,M
 
     case 0x5f: state->e = state->a; break;
@@ -600,7 +632,7 @@ int emulateOp(state8080* state) {
     case 0x65: state->h = state->l; break;
 
     case 0x66:
-      state->h = state->memory[(state->h << 8) | state->l];
+      state->h = readFromMemory(state, state->h, state->l);
       break; // MOV H,M
 
     case 0x67: state->h = state->a; break;
@@ -618,39 +650,39 @@ int emulateOp(state8080* state) {
     case 0x6d: state->l = state->l; break;
 
     case 0x6e:
-      state->l = state->memory[(state->h << 8) | state->l];
+      state->l = readFromMemory(state, state->h, state->l);
       break; // MOV L,M
 
     case 0x6f: state->l = state->a; break;
 
     case 0x70:
-      state->memory[(state->h << 8) | state->l] = state->b;
+      writeToMemory(state, state->b, state->h, state->l);
       break; // MOV M,B
 
     case 0x71:
-      state->memory[(state->h << 8) | state->l] = state->c;
+      writeToMemory(state, state->c, state->h, state->l);
       break; // MOV M,C
 
     case 0x72:
-      state->memory[(state->h << 8) | state->l] = state->d;
+      writeToMemory(state, state->d, state->h, state->l);
       break; // MOV M,D
 
     case 0x73:
-      state->memory[(state->h << 8) | state->l] = state->e;
+      writeToMemory(state, state->e, state->h, state->l);
       break; // MOV M,E
 
     case 0x74:
-      state->memory[(state->h << 8) | state->l] = state->h;
+      writeToMemory(state, state->h, state->h, state->l);
       break; // MOV M,H
 
     case 0x75:
-      state->memory[(state->h << 8) | state->l] = state->l;
+      writeToMemory(state, state->l, state->h, state->l);
       break; // MOV M,L
 
     case 0x76: exit(0); break; // HLT
 
     case 0x77:
-      state->memory[(state->h << 8) | state->l] = state->a;
+      writeToMemory(state, state->a, state->h, state->l);
       break; // MOV M,A
 
     case 0x78: state->a = state->b; break;
@@ -666,7 +698,7 @@ int emulateOp(state8080* state) {
     case 0x7d: state->a = state->l; break;
 
     case 0x7e:
-      state->a = state->memory[(state->h << 8) | state->l];
+      state->a = readFromMemory(state, state->h, state->l);
       break; // MOV A,M
 
     case 0x7f: state->a = state->a; break;
@@ -733,7 +765,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0x86: {
-      uint16_t val = state->a + state->memory[(state->h << 8) | state->l];
+      uint16_t val = state->a + readFromMemory(state, state->h, state->l);
       state->cc.z = ((val & 0xff) == 0);
       state->cc.s = ((val & 0x80) != 0);
       state->cc.cy = (val > 0xff);
@@ -812,7 +844,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0x8e: {
-      uint16_t val = state->a + state->memory[(state->h << 8) | state->l] + state->cc.cy;
+      uint16_t val = state->a + readFromMemory(state, state->h, state->l) + state->cc.cy;
       state->cc.z = ((val & 0xff) == 0);
       state->cc.s = ((val & 0x80) != 0);
       state->cc.cy = (val > 0xff);
@@ -892,7 +924,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0x96: {
-      uint16_t val = state->a - state->memory[(state->h << 8) | state->l];
+      uint16_t val = state->a - readFromMemory(state, state->h, state->l);
       state->cc.z = ((val & 0xff) == 0);
       state->cc.s = ((val & 0x80) != 0);
       state->cc.cy = (val > 0xff);
@@ -972,7 +1004,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0x9e: {
-      uint16_t val = state->a - state->memory[(state->h << 8) | state->l] - state->cc.cy;
+      uint16_t val = state->a - readFromMemory(state, state->h, state->l) - state->cc.cy;
       state->cc.z = ((val & 0xff) == 0);
       state->cc.s = ((val & 0x80) != 0);
       state->cc.cy = (val > 0xff);
@@ -1053,7 +1085,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0xa6: {
-      uint16_t val = state->a & state->memory[(state->h << 8) | state->l];
+      uint16_t val = state->a & readFromMemory(state, state->h, state->l);
       state->cc.z = ((val & 0xff) == 0);
       state->cc.s = ((val & 0x80) != 0);
       state->cc.cy = (val > 0xff);
@@ -1133,7 +1165,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0xae: {
-      uint16_t val = state->a ^ state->memory[(state->h << 8) | state->l];
+      uint16_t val = state->a ^ readFromMemory(state, state->h, state->l);
       state->cc.z = ((val & 0xff) == 0);
       state->cc.s = ((val & 0x80) != 0);
       state->cc.cy = (val > 0xff);
@@ -1213,7 +1245,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0xb6: {
-      uint16_t val = state->a | state->memory[(state->h << 8) | state->l];
+      uint16_t val = state->a | readFromMemory(state, state->h, state->l);
       state->cc.z = ((val & 0xff) == 0);
       state->cc.s = ((val & 0x80) != 0);
       state->cc.cy = (val > 0xff);
@@ -1287,7 +1319,7 @@ int emulateOp(state8080* state) {
     }
 
     case 0xbe: {
-      uint16_t val = state->a - state->memory[(state->h << 8) | state->l];
+      uint16_t val = state->a - readFromMemory(state, state->h, state->l);
       state->cc.z = ((val & 0xff) == 0);
       state->cc.s = ((val & 0x80) != 0);
       state->cc.cy = (val > 0xff);
